@@ -142,7 +142,13 @@ if (! function_exists('brand_logo')) {
         $locale ??= edition();
         $custom = setting("logo_{$variant}_{$locale}") ?: setting("logo_{$variant}");
 
-        return $custom ?: asset("images/brand/doogsan-logo-{$variant}.png");
+        if ($custom && ! preg_match('#^https?://#i', $custom)) {
+            $custom = url($custom);
+        }
+
+        $default = $variant === 'mark' ? 'images/brand/doogsan-mark-light.png' : "images/brand/doogsan-logo-{$variant}.png";
+
+        return $custom ?: asset($default);
     }
 }
 

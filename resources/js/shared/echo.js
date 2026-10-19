@@ -2,7 +2,7 @@ import Echo from 'laravel-echo';
 import Pusher from 'pusher-js';
 
 /**
- * Connect to Reverb using runtime config injected by the server
+ * Connect to Reverb (or a hosted Pusher service) using runtime config injected by the server
  * (so the same build works on staging and production).
  * Returns null when real-time is disabled.
  */
@@ -10,6 +10,16 @@ export function connectEcho(cfg) {
   if (!cfg || !cfg.key) return null;
   window.Pusher = Pusher;
   try {
+    if (cfg.driver === 'pusher') {
+      return new Echo({
+        broadcaster: 'pusher',
+        key: cfg.key,
+        cluster: cfg.cluster || 'eu',
+        forceTLS: true,
+        authEndpoint: '/broadcasting/auth',
+        withCredentials: true,
+      });
+    }
     return new Echo({
       broadcaster: 'reverb',
       key: cfg.key,

@@ -277,6 +277,9 @@
                     <div class="panel-head"><h2>More</h2></div>
                     <div class="panel-body flex flex-wrap gap-2">
                         @can('articles.create')<button type="submit" form="duplicate-form" class="btn btn-secondary btn-sm">Duplicate</button>@endcan
+                        @if (auth()->user()->hasPermission('articles.edit_any') && $article->translations->count() === 1)
+                            <button type="submit" form="move-form" class="btn btn-secondary btn-sm">Move to {{ $edition === 'en' ? 'Somali' : 'English' }} newsroom</button>
+                        @endif
                         @can('articles.delete')<button type="submit" form="delete-form" class="btn btn-danger btn-sm">Move to trash</button>@endcan
                     </div>
                 </section>
@@ -289,6 +292,7 @@
     <form id="approve-mt" method="post" action="{{ route('admin.articles.approve-translation', [$article, $edition]) }}">@csrf</form>
     <form id="correction-form" method="post" action="{{ route('admin.articles.correction', [$article, $edition]) }}" data-confirm="Publish this notice on the live story?">@csrf</form>
     <form id="duplicate-form" method="post" action="{{ route('admin.articles.duplicate', $article) }}">@csrf</form>
+    <form id="move-form" method="post" action="{{ route('admin.articles.move-edition', $article) }}" data-confirm="Move this story to the other newsroom? Use this only for stories filed in the wrong language.">@csrf</form>
     <form id="delete-form" method="post" action="{{ route('admin.articles.destroy', $article) }}" data-confirm="Move this story to the trash?">@csrf @method('DELETE')</form>
 
     <section class="panel mt-6 max-w-3xl">

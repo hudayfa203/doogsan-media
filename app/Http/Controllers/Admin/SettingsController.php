@@ -26,6 +26,7 @@ class SettingsController extends Controller
             'values' => collect(self::KEYS)->mapWithKeys(fn ($k) => [$k => setting($k)])->all(),
             'social' => ['en' => (array) setting('social_en', []), 'so' => (array) setting('social_so', [])],
             'logos' => collect(self::LOGOS)->flatMap(fn ($v) => [$v => setting("logo_{$v}"), "{$v}_en" => setting("logo_{$v}_en"), "{$v}_so" => setting("logo_{$v}_so")])->all(),
+            'logoIds' => collect(self::LOGOS)->flatMap(fn ($v) => [$v => setting("logo_{$v}_id"), "{$v}_en" => setting("logo_{$v}_en_id"), "{$v}_so" => setting("logo_{$v}_so_id")])->all(),
             'features' => (array) setting('features', ['live_tv' => true, 'newsletter' => true, 'tips' => true, 'pwa' => true, 'dark_mode' => true]),
         ]);
     }
@@ -57,7 +58,10 @@ class SettingsController extends Controller
         }
         foreach ((array) ($data['logo'] ?? []) as $slot => $mediaId) {
             if (preg_match('/^(light|dark|mark)(_(en|so))?$/', $slot)) {
-                Setting::put("logo_{$slot}", $mediaId ? MediaAsset::find($mediaId)?->url() : null);
+                $asset = $mediaId ? MediaAsset::find($mediaId) : null;
+                // Root-relative, so a logo chosen on staging still works on the live domain.
+                Setting::put("logo_{$slot}", $asset ? (parse_url($asset->url(), PHP_URL_PATH) ?: $asset->url()) : null);
+                Setting::put("logo_{$slot}_id", $asset?->id);
             }
         }
         if ($request->has('features_present')) {

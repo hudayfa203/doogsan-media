@@ -24,9 +24,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trustProxies(at: '*');
 
-        $middleware->web(prepend: [
-            ApplyRedirects::class,
-        ], append: [
+        // Global, so old URLs that match no route (e.g. WordPress /2026/09/01/slug/) still redirect.
+        $middleware->prepend(ApplyRedirects::class);
+
+        $middleware->web(append: [
             SecurityHeaders::class,
         ]);
 

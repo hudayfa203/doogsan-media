@@ -48,7 +48,7 @@ class AuthorController extends Controller
             'email' => 'nullable|email|max:190', 'x_handle' => 'nullable|string|max:60', 'linkedin_url' => 'nullable|url|max:255',
             'desk' => 'nullable|string|max:80', 'team_order' => 'nullable|integer|min:0|max:9999',
         ]);
-        $data['slug'] = $data['slug'] ?: Str::slug($data['name']);
+        $data['slug'] = ($data['slug'] ?? null) ?: Str::slug($data['name']);
         $data['is_staff'] = $request->boolean('is_staff');
         $data['show_on_team_page'] = $request->boolean('show_on_team_page');
         $data['team_order'] ??= 100;

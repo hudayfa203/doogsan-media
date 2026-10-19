@@ -72,6 +72,7 @@ class DashboardController extends Controller
             ->orderBy('deadline_at')->limit(6)->get();
 
         $alerts = $this->operationalAlerts();
+        $editionsPerf = $this->editionPerformance($start, $end, $todayStart, $summary);
 
         return view('admin.dashboard', [
             'stats' => $stats,
@@ -87,6 +88,8 @@ class DashboardController extends Controller
             'liveEvents' => LiveEvent::where('status', 'live')->withCount('allUpdates')->get(),
             'activity' => AuditLog::with('user')->latest('created_at')->limit(12)->get(),
             'opsAlerts' => $alerts,
+            'editionsPerf' => $editionsPerf,
+            'sampleViews' => PageView::whereBetween('created_at', [$start, $end])->where('source', 'sample')->count(),
             'from' => $start->copy()->setTimezone(config('doogsan.timezone'))->toDateString(),
             'to' => $end->copy()->setTimezone(config('doogsan.timezone'))->toDateString(),
         ]);
@@ -101,6 +104,58 @@ class DashboardController extends Controller
             'breaking' => BreakingAlert::where('is_active', true)->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))->count(),
             'inbox' => ContactMessage::where('status', 'new')->count() + NewsTip::where('status', 'new')->count(),
         ]);
+    }
+
+    /**
+     * Somali, English and combined newsroom performance, side by side.
+     * Every figure is counted from real records; nothing is estimated.
+     */
+    protected function editionPerformance($start, $end, $todayStart, array $summary): array
+    {
+        $byStatus = ArticleTranslation::select('locale', 'status', DB::raw('COUNT(*) as c'))->groupBy('locale', 'status')->get()
+            ->groupBy('locale')->map(fn ($rows) => $rows->pluck('c', 'status'));
+        $origin = Article::select('edition', DB::raw('COUNT(*) as c'))->groupBy('edition')->pluck('c', 'edition');
+        $publishedPeriod = ArticleTranslation::where('status', 'published')->whereBetween('published_at', [$start, $end])
+            ->select('locale', DB::raw('COUNT(*) as c'))->groupBy('locale')->pluck('c', 'locale');
+        $today = ArticleTranslation::where('status', 'published')->where('published_at', '>=', $todayStart)
+            ->select('locale', DB::raw('COUNT(*) as c'))->groupBy('locale')->pluck('c', 'locale');
+        $visitors = PageView::whereBetween('created_at', [$start, $end])->select('locale', DB::raw('COUNT(DISTINCT visitor_hash) as c'))->groupBy('locale')->pluck('c', 'locale');
+        $breaking = BreakingAlert::where('is_active', true)->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+            ->select('locale', DB::raw('COUNT(*) as c'))->groupBy('locale')->pluck('c', 'locale');
+        $live = LiveEvent::where('status', 'live')->select('locale', DB::raw('COUNT(*) as c'))->groupBy('locale')->pluck('c', 'locale');
+        $subs = Subscriber::active()->select('locale', DB::raw('COUNT(*) as c'))->groupBy('locale')->pluck('c', 'locale');
+        $videos = Video::select('locale', DB::raw('COUNT(*) as c'))->groupBy('locale')->pluck('c', 'locale');
+
+        $rows = [];
+        foreach (['so' => 'Somali Newsroom', 'en' => 'English Newsroom'] as $loc => $label) {
+            $st = $byStatus[$loc] ?? collect();
+            $top = PageView::whereBetween('created_at', [$start, $end])->where('content_type', 'article')->where('locale', $loc)
+                ->select('content_id', DB::raw('COUNT(*) as v'))->groupBy('content_id')->orderByDesc('v')->first();
+            $rows[$loc] = [
+                'label' => $label,
+                'stories' => (int) ($origin[$loc] ?? 0),
+                'published' => (int) ($st['published'] ?? 0),
+                'published_period' => (int) ($publishedPeriod[$loc] ?? 0),
+                'today' => (int) ($today[$loc] ?? 0),
+                'pending' => (int) (($st['submitted'] ?? 0) + ($st['editing'] ?? 0)),
+                'drafts' => (int) ($st['draft'] ?? 0),
+                'scheduled' => (int) ($st['scheduled'] ?? 0),
+                'breaking' => (int) ($breaking[$loc] ?? 0),
+                'live' => (int) ($live[$loc] ?? 0),
+                'videos' => (int) ($videos[$loc] ?? 0),
+                'views' => (int) ($summary['by_locale'][$loc] ?? 0),
+                'visitors' => (int) ($visitors[$loc] ?? 0),
+                'subscribers' => (int) ($subs[$loc] ?? 0),
+                'top' => $top ? ArticleTranslation::find($top->content_id)?->setAttribute('period_views', $top->v) : null,
+            ];
+        }
+        $sum = fn ($k) => $rows['so'][$k] + $rows['en'][$k];
+        $rows['all'] = ['label' => 'Combined'] + collect(array_keys($rows['so']))->reject(fn ($k) => in_array($k, ['label', 'top']))
+            ->mapWithKeys(fn ($k) => [$k => $sum($k)])->all();
+        $rows['all']['visitors'] = (int) $summary['visitors']; // unique across both editions, not a sum
+        $rows['all']['top'] = null;
+
+        return $rows;
     }
 
     protected function operationalAlerts(): array

@@ -18,7 +18,7 @@ class ApplyRedirects
                 $path = Redirect::normalize($request->getPathInfo());
                 if (isset($map[$path])) {
                     $r = Redirect::where('from_path', $path)->first();
-                    $r?->increment('hits');
+                    $r?->incrementQuietly('hits');
 
                     return redirect($map[$path], $r?->status_code ?? 301);
                 }

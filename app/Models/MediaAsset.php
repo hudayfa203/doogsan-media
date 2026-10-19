@@ -11,7 +11,7 @@ class MediaAsset extends Model
     protected $fillable = [
         'disk', 'path', 'type', 'mime_type', 'original_name', 'size_bytes', 'width', 'height',
         'duration_seconds', 'variants', 'title', 'alt_en', 'alt_so', 'caption_en', 'caption_so',
-        'credit', 'copyright', 'license', 'usage_notes', 'folder', 'uploaded_by',
+        'credit', 'copyright', 'license', 'usage_notes', 'folder', 'uploaded_by', 'source_url',
     ];
 
     protected function casts(): array

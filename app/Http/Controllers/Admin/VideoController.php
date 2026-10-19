@@ -65,7 +65,7 @@ class VideoController extends Controller
         if (! empty($data['youtube_id']) && preg_match('~(?:v=|youtu\.be/|embed/|shorts/|live/)([A-Za-z0-9_-]{11})~', $data['youtube_id'], $m)) {
             $data['youtube_id'] = $m[1];
         }
-        $slug = $data['slug'] ?: Str::slug($data['title']);
+        $slug = ($data['slug'] ?? null) ?: Str::slug($data['title']);
         $base = $slug;
         $i = 2;
         while (Video::where('locale', $data['locale'])->where('slug', $slug)->where('id', '!=', $video->id ?? 0)->exists()) {

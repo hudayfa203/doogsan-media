@@ -22,6 +22,19 @@ return [
             ],
         ],
 
+        // Hosted push service (works on shared hosting: events go out over HTTPS, no daemon).
+        'pusher' => [
+            'driver' => 'pusher',
+            'key' => env('PUSHER_APP_KEY'),
+            'secret' => env('PUSHER_APP_SECRET'),
+            'app_id' => env('PUSHER_APP_ID'),
+            'options' => [
+                'cluster' => env('PUSHER_APP_CLUSTER', 'eu'),
+                'useTLS' => true,
+            ],
+            'client_options' => [],
+        ],
+
         'log' => [
             'driver' => 'log',
         ],

@@ -73,3 +73,36 @@ Artisan::command('doogsan:sample {--remove : Delete all sample content} {--passw
     $this->line("Sample newsroom accounts (e.g. ayan@sample.doogsanmedia.com) use password: {$password}");
     $this->warn('Everything is labelled “Sample”. Remove before launch:  php artisan doogsan:sample --remove');
 })->purpose('Install or remove clearly-labelled sample content for design review');
+
+Artisan::command('doogsan:import-wordpress {url : WordPress site, e.g. https://doogsanmedia.com}
+    {--dry-run : Show what would be imported without changing anything}
+    {--update : Refresh posts that were already imported}
+    {--limit=0 : Stop after this many posts}
+    {--since= : Only posts published after this date (YYYY-MM-DD)}
+    {--status=published : published (mirror the live site) or draft (editors review first)}
+    {--edition= : Force every post into one newsroom (en|so) instead of detecting the language}
+    {--no-images : Do not download images}', function (\App\Services\WordPressImporter $importer) {
+    $edition = $this->option('edition');
+    if ($edition && ! in_array($edition, ['en', 'so'], true)) {
+        $this->error('--edition must be en or so');
+
+        return 1;
+    }
+    $this->info(($this->option('dry-run') ? '[DRY RUN] ' : '').'Importing from '.$this->argument('url'));
+    $result = $importer->run($this->argument('url'), [
+        'dry_run' => $this->option('dry-run'),
+        'update' => $this->option('update'),
+        'limit' => (int) $this->option('limit'),
+        'since' => $this->option('since'),
+        'status' => $this->option('status'),
+        'force_edition' => $edition,
+        'no_images' => $this->option('no-images'),
+    ], fn ($r) => $this->line(sprintf('  %-7s %-3s %4s  #%-6s %s  <fg=gray>%s</>', $r['action'], strtoupper($r['edition']), isset($r['confidence']) ? round($r['confidence'] * 100).'%' : '', $r['id'], $r['title'], $r['note'])));
+
+    $this->newLine();
+    $this->table(array_keys($result['counts']), [array_values($result['counts'])]);
+    $low = collect($result['rows'])->filter(fn ($r) => isset($r['confidence']) && $r['confidence'] < 0.65)->count();
+    if ($low) {
+        $this->warn("{$low} post(s) had low language confidence — check them in the newsrooms and move any mis-filed story.");
+    }
+})->purpose('Import posts from the existing WordPress site into the Somali and English newsrooms');

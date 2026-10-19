@@ -56,6 +56,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::delete('articles/{article}/lock/{locale}', [Admin\ArticleController::class, 'unlock'])->name('articles.unlock');
             Route::post('articles/{article}/transition/{locale}', [Admin\ArticleController::class, 'transition'])->name('articles.transition');
             Route::post('articles/{article}/duplicate', [Admin\ArticleController::class, 'duplicate'])->middleware('admin:articles.create')->name('articles.duplicate');
+            Route::post('articles/{article}/move-edition', [Admin\ArticleController::class, 'moveEdition'])->middleware('admin:articles.edit_any')->name('articles.move-edition');
             Route::delete('articles/{article}', [Admin\ArticleController::class, 'destroy'])->middleware('admin:articles.delete')->name('articles.destroy');
             Route::get('articles/{article}/preview/{locale}', [Admin\ArticleController::class, 'preview'])->name('articles.preview');
             Route::get('articles/{article}/history/{locale}', [Admin\ArticleController::class, 'history'])->name('articles.history');

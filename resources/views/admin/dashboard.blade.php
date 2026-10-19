@@ -1,5 +1,5 @@
 @extends('layouts.admin')
-@section('title', 'Command Center')
+@section('title', 'Executive Overview')
 
 @section('content')
 @php
@@ -10,7 +10,7 @@
     $byLocale = $summary['by_locale'];
 @endphp
 
-<x-admin.page-header eyebrow="Doogsan Newsroom" title="Command Center" :subtitle="'Good '.(local_time(now())->hour < 12 ? 'morning' : (local_time(now())->hour < 17 ? 'afternoon' : 'evening')).', '.explode(' ', auth()->user()->name)[0].' — '.news_date(now(), false)">
+<x-admin.page-header eyebrow="Doogsan Newsroom" title="Executive Overview" :subtitle="'Good '.(local_time(now())->hour < 12 ? 'morning' : (local_time(now())->hour < 17 ? 'afternoon' : 'evening')).', '.explode(' ', auth()->user()->name)[0].' — '.news_date(now(), false)">
     <form class="flex items-center gap-2 text-xs" method="get">
         <input type="date" name="from" value="{{ $from }}" class="input !w-auto !py-1.5">
         <span class="text-[var(--color-ink-400)]">→</span>
@@ -32,6 +32,46 @@
         @endforeach
     </div>
 @endif
+
+
+{{-- Edition performance: Somali / English / Combined --}}
+<section class="mb-6">
+    <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 class="text-sm font-semibold text-white">Newsroom performance <span class="font-normal text-[var(--color-ink-400)]">· {{ \Illuminate\Support\Carbon::parse($from)->format('d M') }} – {{ \Illuminate\Support\Carbon::parse($to)->format('d M Y') }}</span></h2>
+        @if ($sampleViews)
+            <span class="rounded border border-[var(--color-amber)]/50 px-2 py-0.5 text-[0.6875rem] text-[#ffd98a]">Includes {{ number_format($sampleViews) }} sample page views (demonstration data — removed with <code>doogsan:sample --remove</code>)</span>
+        @endif
+    </div>
+    <div class="grid gap-3 lg:grid-cols-3">
+        @foreach (['so', 'en', 'all'] as $k)
+            @php $e = $editionsPerf[$k]; @endphp
+            <div class="panel p-4 {{ $k === 'all' ? 'border-[var(--color-ink-500)]' : '' }}">
+                <div class="flex items-center justify-between">
+                    <p class="eyebrow">{{ $e['label'] }}</p>
+                    @if ($k !== 'all')
+                        <a href="{{ route('admin.newsroom.show', $k) }}" class="text-[0.6875rem] text-[var(--color-ink-300)] hover:text-white">Open →</a>
+                    @endif
+                </div>
+                <div class="mt-3 grid grid-cols-3 gap-3">
+                    @foreach ([['Views', 'views'], ['Visitors', 'visitors'], ['Published', 'published_period'], ['Today', 'today'], ['Pending', 'pending'], ['Scheduled', 'scheduled']] as [$l, $f])
+                        <div>
+                            <p class="num text-xl font-semibold text-white">{{ number_format($e[$f]) }}</p>
+                            <p class="text-[0.6875rem] text-[var(--color-ink-400)]">{{ $l }}</p>
+                        </div>
+                    @endforeach
+                </div>
+                <p class="mt-3 border-t border-[var(--color-ink-800)] pt-2 text-[0.6875rem] text-[var(--color-ink-400)]">
+                    {{ number_format($e['published']) }} live · {{ number_format($e['drafts']) }} drafts · {{ $e['breaking'] }} breaking · {{ $e['live'] }} live blogs · {{ number_format($e['subscribers']) }} subscribers
+                </p>
+                @if (! empty($e['top']))
+                    <p class="mt-2 truncate text-xs text-[var(--color-ink-300)]">Top: <a class="text-white hover:underline" href="{{ story_edit_url($e['top']->article_id, $e['top']->locale) }}">{{ $e['top']->title }}</a> <span class="num text-[var(--color-ink-400)]">· {{ number_format($e['top']->period_views) }}</span></p>
+                @elseif ($k !== 'all')
+                    <p class="mt-2 text-xs text-[var(--color-ink-500)]">No article traffic recorded in this period.</p>
+                @endif
+            </div>
+        @endforeach
+    </div>
+</section>
 
 {{-- KPI strip --}}
 <div x-data="metrics({ live_visitors: {{ $stats['live_visitors'] }}, pending: {{ $stats['pending'] }}, breaking: {{ $stats['breaking'] }}, inbox: 0 })" class="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">

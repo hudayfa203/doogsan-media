@@ -11,7 +11,11 @@
         'host' => config('broadcasting.connections.reverb.options.host'),
         'port' => (int) config('broadcasting.connections.reverb.options.port'),
         'scheme' => config('broadcasting.connections.reverb.options.scheme'),
-    ] : null;
+    ] : (config('broadcasting.default') === 'pusher' ? [
+        'driver' => 'pusher',
+        'key' => config('broadcasting.connections.pusher.key'),
+        'cluster' => config('broadcasting.connections.pusher.options.cluster'),
+    ] : null);
     $jsConfig = [
             'locale' => $locale,
             'timezone' => config('doogsan.timezone'),

@@ -16,6 +16,7 @@ class Article extends Model
     protected $fillable = [
         'edition', 'format', 'category_id', 'author_id', 'featured_media_id', 'live_event_id', 'created_by',
         'assignee_id', 'deadline_at', 'priority', 'is_breaking', 'is_sample', 'video_url', 'audio_url', 'location',
+        'import_source', 'import_id',
     ];
 
     protected function casts(): array

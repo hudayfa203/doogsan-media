@@ -336,6 +336,36 @@ class ArticleController extends Controller
         return redirect()->to(story_edit_url($copy))->with('status', __('Duplicated as a new draft.'));
     }
 
+    /**
+     * Move a story that was filed in the wrong newsroom (e.g. by the WordPress
+     * importer's language detection). Only allowed while the story exists in a
+     * single language, so it never silently becomes a translation.
+     */
+    public function moveEdition(Request $request, Article $article)
+    {
+        $from = $article->edition;
+        $to = $from === 'en' ? 'so' : 'en';
+        $this->guardNewsroom($request, $from);
+        $this->guardNewsroom($request, $to);
+        abort_unless($request->user()->hasPermission('articles.edit_any'), 403);
+        if ($article->translations()->count() !== 1) {
+            return back()->withErrors(['article' => __('This story has versions in both newsrooms and cannot be moved.')]);
+        }
+        $t = $article->translations()->first();
+        \Illuminate\Support\Facades\DB::transaction(function () use ($article, $t, $to) {
+            $oldUrl = $t->isLive() ? parse_url($t->url(), PHP_URL_PATH) : null;
+            $t->update(['locale' => $to, 'slug' => $this->articles->uniqueSlug($to, $t->slug, $t->id)]);
+            $article->update(['edition' => $to]);
+            $t->tags()->sync([]);
+            if ($oldUrl && ($new = parse_url($t->fresh()->url(), PHP_URL_PATH)) !== $oldUrl) {
+                \App\Models\Redirect::updateOrCreate(['from_path' => \App\Models\Redirect::normalize($oldUrl)], ['to_url' => $new, 'status_code' => 301]);
+            }
+        });
+        AuditLog::record('article.moved', "Moved #{$article->id} from {$from} to {$to} newsroom", $article);
+
+        return redirect()->to(story_edit_url($article->fresh(), $to))->with('status', __('Story moved to the :e newsroom.', ['e' => editions()[$to]['name']]));
+    }
+
     public function destroy(Request $request, Article $article)
     {
         if ($article->translations()->where('status', 'published')->exists()) {

@@ -35,6 +35,7 @@ class CategoryController extends Controller
             'key' => ['required', 'string', 'max:60', 'regex:/^[a-z0-9\-]+$/', Rule::unique('categories', 'key')->ignore($category->id)],
             'parent_id' => 'nullable|exists:categories,id',
             'color' => 'nullable|regex:/^#[0-9a-fA-F]{6}$/',
+            'locale' => 'nullable|in:en,so',
             'position' => 'nullable|integer|min:0|max:9999',
             't' => 'required|array',
             't.*.name' => 'required|string|max:80',
@@ -45,7 +46,7 @@ class CategoryController extends Controller
         ]);
 
         $category->fill([
-            'key' => $data['key'], 'parent_id' => $data['parent_id'] ?? null, 'color' => $data['color'] ?? null,
+            'key' => $data['key'], 'parent_id' => $data['parent_id'] ?? null, 'color' => $data['color'] ?? null, 'locale' => $data['locale'] ?? null,
             'position' => $data['position'] ?? 100, 'is_active' => $request->boolean('is_active'), 'in_navigation' => $request->boolean('in_navigation'),
         ])->save();
 
@@ -53,7 +54,7 @@ class CategoryController extends Controller
             if (! array_key_exists($locale, editions())) {
                 continue;
             }
-            $slug = $t['slug'] ?: Str::slug($t['name']);
+            $slug = ($t['slug'] ?? null) ?: Str::slug($t['name']);
             $reserved = array_merge(array_column(config('doogsan.segments'), $locale), collect(config('doogsan.formats'))->pluck("slug.{$locale}")->all());
             if (in_array($slug, $reserved, true)) {
                 $slug .= '-news';

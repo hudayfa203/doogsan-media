@@ -36,13 +36,20 @@ class UserController extends Controller
 
     protected function data(Request $request, ?User $user = null): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'name' => 'required|string|max:120',
             'email' => ['required', 'email', 'max:190', Rule::unique('users', 'email')->ignore($user?->id)],
             'role_id' => 'required|exists:roles,id',
             'preferred_locale' => 'required|in:en,so',
             'password' => [$user ? 'nullable' : 'required', Password::min(12)->mixedCase()->numbers()],
+            'newsroom' => 'nullable|in:both,en,so',
         ]);
+        // Newsroom assignment: null = works in both the Somali and English newsrooms.
+        $newsroom = $data['newsroom'] ?? 'both';
+        unset($data['newsroom']);
+        $data['newsrooms'] = $newsroom === 'both' ? null : [$newsroom];
+
+        return $data;
     }
 
     public function store(Request $request)
