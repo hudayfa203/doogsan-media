@@ -1,0 +1,79 @@
+name: Deploy
+
+# Builds a release on GitHub and ships it to the hosting account over SSH.
+# Configure repository secrets: DEPLOY_HOST, DEPLOY_PORT, DEPLOY_USER, DEPLOY_KEY, DEPLOY_PATH.
+# Until they exist this workflow exits without doing anything.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      HAS_TARGET: ${{ secrets.DEPLOY_HOST != '' && secrets.DEPLOY_KEY != '' }}
+    steps:
+      - name: Check deployment target
+        if: env.HAS_TARGET != 'true'
+        run: echo "::notice::Deployment secrets are not configured yet — skipping deploy."
+
+      - uses: actions/checkout@v4
+        if: env.HAS_TARGET == 'true'
+
+      - uses: shivammathur/setup-php@v2
+        if: env.HAS_TARGET == 'true'
+        with:
+          php-version: '8.3'
+          extensions: mbstring, intl, gd, zip
+          coverage: none
+
+      - uses: actions/setup-node@v4
+        if: env.HAS_TARGET == 'true'
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Build release
+        if: env.HAS_TARGET == 'true'
+        run: |
+          composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-progress
+          npm ci && npm run build
+          rm -rf node_modules tests .git .github storage
+          tar -czf /tmp/release.tgz .
+
+      - name: Upload and activate
+        if: env.HAS_TARGET == 'true'
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT || '21098' }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          BASE: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && echo "$SSH_KEY" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
+          ssh-keyscan -p "$PORT" "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          SSH="ssh -i $HOME/.ssh/deploy -p $PORT $USER@$HOST"
+          RELEASE="$(date -u +%Y%m%d%H%M%S)-${GITHUB_SHA::7}"
+          scp -i ~/.ssh/deploy -P "$PORT" /tmp/release.tgz "$USER@$HOST:$BASE/release.tgz"
+          $SSH "set -e
+            cd '$BASE'
+            mkdir -p releases/$RELEASE shared/storage
+            tar -xzf release.tgz -C releases/$RELEASE && rm release.tgz
+            ln -sfn '$BASE/shared/.env' releases/$RELEASE/.env
+            ln -sfn '$BASE/shared/storage' releases/$RELEASE/storage
+            cd releases/$RELEASE
+            php artisan storage:link --force || true
+            php artisan down --retry=15 || true
+            php artisan migrate --force
+            php artisan optimize
+            ln -sfn '$BASE/releases/$RELEASE' '$BASE/current.new' && mv -Tf '$BASE/current.new' '$BASE/current'
+            php artisan up || true
+            cd '$BASE/releases' && ls -1t | tail -n +6 | xargs -r rm -rf
+            echo Deployed $RELEASE"
