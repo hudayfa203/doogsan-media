@@ -85,9 +85,7 @@ class WordPressImporter
             if ($since) {
                 $query['after'] = $since->toIso8601String();
             }
-            $res = Http::timeout(40)->retry(2, 1500)->acceptJson()
-                ->withHeaders(['User-Agent' => 'DoogsanMedia-Importer/1.0'])
-                ->get($base.'/wp-json/wp/v2/posts', $query);
+            $res = $this->fetchPosts($base, $query);
 
             if ($res->status() === 400 && $page > 1) {
                 break; // past the last page
@@ -120,6 +118,36 @@ class WordPressImporter
         }
 
         return ['rows' => $rows, 'counts' => $this->log];
+    }
+
+    /** Endpoint style that worked (pretty /wp-json/ or ?rest_route= when permalinks/REST rewrites are off). */
+    protected ?string $endpoint = null;
+
+    protected function fetchPosts(string $base, array $query): \Illuminate\Http\Client\Response
+    {
+        $styles = $this->endpoint ? [$this->endpoint] : ['pretty', 'rest_route', 'index_rest_route'];
+        $last = null;
+        foreach ($styles as $style) {
+            [$url, $q] = match ($style) {
+                'pretty' => [$base.'/wp-json/wp/v2/posts', $query],
+                'rest_route' => [$base.'/', ['rest_route' => '/wp/v2/posts'] + $query],
+                'index_rest_route' => [$base.'/index.php', ['rest_route' => '/wp/v2/posts'] + $query],
+            };
+            $last = Http::timeout(40)->retry(2, 1500, throw: false)->acceptJson()
+                // Some security plugins reject unknown user agents.
+                ->withHeaders(['User-Agent' => 'Mozilla/5.0 (compatible; DoogsanMedia-Importer/1.0; +https://doogsanmedia.com)'])
+                ->get($url, $q);
+            if ($last->successful() && is_array($last->json())) {
+                $this->endpoint = $style;
+
+                return $last;
+            }
+            if ($this->endpoint) {
+                return $last; // e.g. 400 past the last page
+            }
+        }
+
+        return $last;
     }
 
     public function detectLanguage(string $text): array
@@ -274,7 +302,7 @@ class WordPressImporter
         if ($asset = MediaAsset::where('source_url', $url)->first()) {
             return $asset;
         }
-        $res = Http::timeout(30)->retry(1, 1000)->get($url);
+        $res = Http::timeout(30)->retry(1, 1000, throw: false)->get($url);
         $mime = strtok((string) $res->header('Content-Type'), ';');
         if (! $res->successful() || ! str_starts_with((string) $mime, 'image/') || strlen($res->body()) > 15 * 1024 * 1024) {
             return null;
