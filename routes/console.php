@@ -81,7 +81,9 @@ Artisan::command('doogsan:import-wordpress {url : WordPress site, e.g. https://d
     {--since= : Only posts published after this date (YYYY-MM-DD)}
     {--status=published : published (mirror the live site) or draft (editors review first)}
     {--edition= : Force every post into one newsroom (en|so) instead of detecting the language}
-    {--no-images : Do not download images}', function (\App\Services\WordPressImporter $importer) {
+    {--no-images : Do not download images}
+    {--file= : WordPress export file (WP Admin → Tools → Export) — use when the REST API is blocked}
+    {--uploads= : Local wp-content/uploads folder, to copy images from disk instead of downloading}', function (\App\Services\WordPressImporter $importer) {
     $edition = $this->option('edition');
     if ($edition && ! in_array($edition, ['en', 'so'], true)) {
         $this->error('--edition must be en or so');
@@ -97,6 +99,8 @@ Artisan::command('doogsan:import-wordpress {url : WordPress site, e.g. https://d
         'status' => $this->option('status'),
         'force_edition' => $edition,
         'no_images' => $this->option('no-images'),
+        'wxr' => $this->option('file'),
+        'uploads_dir' => $this->option('uploads'),
     ], fn ($r) => $this->line(sprintf('  %-7s %-3s %4s  #%-6s %s  <fg=gray>%s</>', $r['action'], strtoupper($r['edition']), isset($r['confidence']) ? round($r['confidence'] * 100).'%' : '', $r['id'], $r['title'], $r['note'])));
 
     $this->newLine();

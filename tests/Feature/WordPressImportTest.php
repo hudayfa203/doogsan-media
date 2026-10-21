@@ -101,4 +101,29 @@ class WordPressImportTest extends TestCase
         $this->assertNull($article->t('en'));
         $this->get($oldPath)->assertStatus(301);
     }
+
+    public function test_imports_from_a_wordpress_export_file_with_local_images(): void
+    {
+        Storage::fake('public');
+        Http::fake(); // nothing should be fetched over the network
+        $uploads = sys_get_temp_dir().'/wp-uploads-'.uniqid();
+        mkdir($uploads.'/2026/09', 0777, true);
+        file_put_contents($uploads.'/2026/09/shir.png', base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='));
+
+        $this->artisan('doogsan:import-wordpress', [
+            'url' => 'https://doogsanmedia.com',
+            '--file' => base_path('tests/fixtures/wordpress-export.xml'),
+            '--uploads' => $uploads,
+        ])->assertSuccessful();
+
+        Http::assertNothingSent();
+        $this->assertSame(2, Article::where('import_source', 'wordpress')->count(), 'drafts and attachments are skipped');
+        $so = Article::where('import_id', '101')->firstOrFail();
+        $this->assertSame('so', $so->edition);
+        $this->assertNotNull($so->featured_media_id);
+        $this->assertSame(2, substr_count($so->t('so')->body_html, '<p>'));
+        $this->assertStringContainsString('<br>', $so->t('so')->body_html);
+        $this->assertSame('en', Article::where('import_id', '102')->value('edition'));
+        $this->get('/2026/09/02/parliament-approves-budget/')->assertStatus(301);
+    }
 }

@@ -110,6 +110,8 @@ cd ~/doogsan/current
 php artisan doogsan:import-wordpress https://doogsanmedia.com --dry-run   # report only
 php artisan doogsan:import-wordpress https://doogsanmedia.com             # import (re-runnable, never duplicates)
 php artisan doogsan:import-wordpress https://doogsanmedia.com --status=draft   # alternative: editors review before publishing
+# If the REST API is blocked: WP Admin → Tools → Export → All content, upload the XML, then
+php artisan doogsan:import-wordpress https://doogsanmedia.com --file=wordpress.xml --uploads=$HOME/public_html/wp-content/uploads --dry-run
 ```
 
 Each post is filed into the Somali or English newsroom by language detection (editors can move any mis-filed story). Authors, categories, tags and featured images are imported, and a 301 redirect is created from every old WordPress URL to its new article URL.

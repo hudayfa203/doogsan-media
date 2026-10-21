@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0"
+	xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/"
+	xmlns:content="http://purl.org/rss/1.0/modules/content/"
+	xmlns:wfw="http://wellformedweb.org/CommentAPI/"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:wp="http://wordpress.org/export/1.2/">
+<channel>
+	<title>Doogsan Media</title>
+	<link>https://doogsanmedia.com</link>
+	<wp:wxr_version>1.2</wp:wxr_version>
+	<item>
+		<title><![CDATA[shir]]></title>
+		<link>https://doogsanmedia.com/shir/</link>
+		<dc:creator><![CDATA[admin]]></dc:creator>
+		<content:encoded><![CDATA[]]></content:encoded>
+		<excerpt:encoded><![CDATA[Shirka Garoowe]]></excerpt:encoded>
+		<wp:post_id>55</wp:post_id>
+		<wp:post_date><![CDATA[2026-09-01 10:00:00]]></wp:post_date>
+		<wp:post_date_gmt><![CDATA[2026-09-01 07:00:00]]></wp:post_date_gmt>
+		<wp:post_name><![CDATA[shir]]></wp:post_name>
+		<wp:status><![CDATA[inherit]]></wp:status>
+		<wp:post_type><![CDATA[attachment]]></wp:post_type>
+		<wp:attachment_url><![CDATA[https://doogsanmedia.com/wp-content/uploads/2026/09/shir.png]]></wp:attachment_url>
+		<wp:postmeta><wp:meta_key><![CDATA[_wp_attachment_image_alt]]></wp:meta_key><wp:meta_value><![CDATA[Garoowe]]></wp:meta_value></wp:postmeta>
+	</item>
+	<item>
+		<title><![CDATA[Madaxweynaha Puntland oo booqday Garoowe]]></title>
+		<link>https://doogsanmedia.com/2026/09/01/madaxweynaha-puntland-oo-booqday-garoowe/</link>
+		<dc:creator><![CDATA[Cabdi Xasan]]></dc:creator>
+		<content:encoded><![CDATA[Madaxweynaha Puntland ayaa maanta booqday magaalada Garoowe, waxaana uu la kulmay odayaasha iyo ganacsatada.
+
+Dowladda ayaa sheegtay in ay ka shaqeyn doonto waddooyinka iyo biyaha.
+Sidoo kale waxaa la ballanqaaday mashaariic cusub.
+
+<h2>Mashaariicda</h2>]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>101</wp:post_id>
+		<wp:post_date><![CDATA[2026-09-01 10:00:00]]></wp:post_date>
+		<wp:post_date_gmt><![CDATA[2026-09-01 07:00:00]]></wp:post_date_gmt>
+		<wp:post_name><![CDATA[madaxweynaha-puntland-oo-booqday-garoowe]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_type><![CDATA[post]]></wp:post_type>
+		<category domain="category" nicename="somalia"><![CDATA[Somalia]]></category>
+		<category domain="post_tag" nicename="garoowe"><![CDATA[Garoowe]]></category>
+		<wp:postmeta><wp:meta_key><![CDATA[_thumbnail_id]]></wp:meta_key><wp:meta_value><![CDATA[55]]></wp:meta_value></wp:postmeta>
+	</item>
+	<item>
+		<title><![CDATA[Parliament approves the new federal budget]]></title>
+		<link>https://doogsanmedia.com/2026/09/02/parliament-approves-budget/</link>
+		<dc:creator><![CDATA[Doogsan Media]]></dc:creator>
+		<content:encoded><![CDATA[The parliament of Somalia has approved the federal budget for the coming year, which the government said will fund security and public services.]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>102</wp:post_id>
+		<wp:post_date><![CDATA[2026-09-02 10:00:00]]></wp:post_date>
+		<wp:post_date_gmt><![CDATA[2026-09-02 07:00:00]]></wp:post_date_gmt>
+		<wp:post_name><![CDATA[parliament-approves-budget]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_type><![CDATA[post]]></wp:post_type>
+		<category domain="category" nicename="politics"><![CDATA[Politics]]></category>
+	</item>
+	<item>
+		<title><![CDATA[Draft story]]></title>
+		<link>https://doogsanmedia.com/?p=103</link>
+		<wp:post_id>103</wp:post_id>
+		<wp:post_date><![CDATA[2026-09-03 10:00:00]]></wp:post_date>
+		<wp:status><![CDATA[draft]]></wp:status>
+		<wp:post_type><![CDATA[post]]></wp:post_type>
+	</item>
+</channel>
+</rss>

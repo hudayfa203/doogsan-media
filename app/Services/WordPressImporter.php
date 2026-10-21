@@ -80,6 +80,10 @@ class WordPressImporter
         $page = 1;
         $done = 0;
 
+        if (! empty($options['wxr'])) {
+            return $this->runFromExport($base, $options['wxr'], compact('dry', 'update', 'withImages', 'status', 'force', 'limit', 'since'), $progress, $options['uploads_dir'] ?? null);
+        }
+
         do {
             $query = ['per_page' => 50, 'page' => $page, '_embed' => 1, 'orderby' => 'date', 'order' => 'asc'];
             if ($since) {
@@ -118,6 +122,132 @@ class WordPressImporter
         }
 
         return ['rows' => $rows, 'counts' => $this->log];
+    }
+
+    /** Local copy of wp-content/uploads, used instead of downloading images. */
+    protected ?string $uploadsDir = null;
+
+    /**
+     * Import from a WordPress export file (WP Admin → Tools → Export → Posts),
+     * for sites where the REST API is blocked. No database credentials needed.
+     */
+    protected function runFromExport(string $base, string $file, array $o, ?callable $progress, ?string $uploadsDir): array
+    {
+        if (! is_file($file)) {
+            throw new \RuntimeException("Export file not found: {$file}");
+        }
+        $this->uploadsDir = $uploadsDir && is_dir($uploadsDir) ? rtrim($uploadsDir, '/') : null;
+
+        $xml = simplexml_load_file($file, 'SimpleXMLElement', LIBXML_NOCDATA | LIBXML_NONET | LIBXML_COMPACT | LIBXML_PARSEHUGE);
+        if (! $xml || ! isset($xml->channel)) {
+            throw new \RuntimeException('Not a WordPress export (WXR) file.');
+        }
+        $ns = $xml->getNamespaces(true);
+        $wpNs = $ns['wp'] ?? 'http://wordpress.org/export/1.2/';
+
+        // Attachments first, so featured images can be resolved by id.
+        $attachments = [];
+        foreach ($xml->channel->item as $item) {
+            $wp = $item->children($wpNs);
+            if ((string) $wp->post_type !== 'attachment') {
+                continue;
+            }
+            $meta = [];
+            foreach ($wp->postmeta as $m) {
+                $meta[(string) $m->meta_key] = (string) $m->meta_value;
+            }
+            $attachments[(string) $wp->post_id] = [
+                'source_url' => (string) $wp->attachment_url,
+                'alt_text' => $meta['_wp_attachment_image_alt'] ?? '',
+                'caption' => ['rendered' => (string) $item->children($ns['excerpt'] ?? 'http://wordpress.org/export/1.2/excerpt/')->encoded],
+                'title' => ['rendered' => (string) $item->title],
+            ];
+        }
+
+        $rows = [];
+        $done = 0;
+        foreach ($xml->channel->item as $item) {
+            $wp = $item->children($wpNs);
+            if ((string) $wp->post_type !== 'post' || (string) $wp->status !== 'publish') {
+                continue;
+            }
+            $date = (string) $wp->post_date;
+            if ($o['since'] && Carbon::parse($date)->lt($o['since'])) {
+                continue;
+            }
+            if ($o['limit'] && $done >= $o['limit']) {
+                break;
+            }
+            $done++;
+
+            $meta = [];
+            foreach ($wp->postmeta as $m) {
+                $meta[(string) $m->meta_key] = (string) $m->meta_value;
+            }
+            $cats = $tags = [];
+            foreach ($item->category as $c) {
+                $domain = (string) $c['domain'];
+                $term = ['taxonomy' => $domain, 'slug' => (string) $c['nicename'], 'name' => (string) $c];
+                if ($domain === 'category') {
+                    $cats[] = $term;
+                } elseif ($domain === 'post_tag') {
+                    $tags[] = $term;
+                }
+            }
+            $gmt = (string) $wp->post_date_gmt;
+            $gmt = ($gmt && ! str_starts_with($gmt, '0000')) ? $gmt : $date;
+            $thumb = $meta['_thumbnail_id'] ?? null;
+
+            $post = [
+                'id' => (string) $wp->post_id,
+                'status' => 'publish',
+                'date' => $date,
+                'date_gmt' => $gmt,
+                'modified_gmt' => $gmt,
+                'link' => (string) $item->link,
+                'title' => ['rendered' => (string) $item->title],
+                'excerpt' => ['rendered' => (string) $item->children($ns['excerpt'] ?? 'http://wordpress.org/export/1.2/excerpt/')->encoded],
+                'content' => ['rendered' => $this->autop((string) $item->children($ns['content'] ?? 'http://purl.org/rss/1.0/modules/content/')->encoded)],
+                '_embedded' => [
+                    'author' => [['name' => (string) $item->children($ns['dc'] ?? 'http://purl.org/dc/elements/1.1/')->creator]],
+                    'wp:featuredmedia' => ($thumb && isset($attachments[$thumb])) ? [$attachments[$thumb]] : [],
+                    'wp:term' => [$cats, $tags],
+                ],
+            ];
+
+            try {
+                $row = $this->importPost($post, $base, ['dry' => $o['dry'], 'update' => $o['update'], 'withImages' => $o['withImages'], 'status' => $o['status'], 'force' => $o['force']]);
+            } catch (\Throwable $e) {
+                $this->log['failed']++;
+                $row = ['id' => $post['id'], 'title' => Str::limit((string) $item->title, 60), 'edition' => '-', 'action' => 'failed', 'note' => Str::limit($e->getMessage(), 120)];
+            }
+            $rows[] = $row;
+            $progress && $progress($row);
+        }
+
+        if (! $o['dry'] && ($this->log['created'] || $this->log['updated'])) {
+            AuditLog::record('import.wordpress', "WordPress import (export file): {$this->log['created']} created, {$this->log['updated']} updated");
+        }
+
+        return ['rows' => $rows, 'counts' => $this->log];
+    }
+
+    /** Minimal wpautop: raw WordPress content separates paragraphs with blank lines. */
+    protected function autop(string $text): string
+    {
+        $text = str_replace(["\r\n", "\r"], "\n", trim($text));
+        $out = '';
+        foreach (preg_split('/\n\s*\n/', $text) as $b) {
+            $b = trim($b);
+            if ($b === '') {
+                continue;
+            }
+            $out .= preg_match('#^<(p|div|h[1-6]|ul|ol|li|blockquote|figure|table|iframe|hr|pre|section|!--)#i', $b)
+                ? $b."\n"
+                : '<p>'.nl2br($b, false)."</p>\n";
+        }
+
+        return $out;
     }
 
     /** Endpoint style that worked (pretty /wp-json/ or ?rest_route= when permalinks/REST rewrites are off). */
@@ -302,13 +432,29 @@ class WordPressImporter
         if ($asset = MediaAsset::where('source_url', $url)->first()) {
             return $asset;
         }
-        $res = Http::timeout(30)->retry(1, 1000, throw: false)->get($url);
-        $mime = strtok((string) $res->header('Content-Type'), ';');
-        if (! $res->successful() || ! str_starts_with((string) $mime, 'image/') || strlen($res->body()) > 15 * 1024 * 1024) {
+        $body = $mime = null;
+        // Prefer the local uploads folder when the WordPress files are on this server.
+        if ($this->uploadsDir && ($pos = strpos($url, '/wp-content/uploads/')) !== false) {
+            $rel = ltrim(rawurldecode((string) parse_url(substr($url, $pos + strlen('/wp-content/uploads/')), PHP_URL_PATH)), '/');
+            $local = $this->uploadsDir.'/'.$rel;
+            if (! str_contains($rel, '..') && is_file($local) && filesize($local) <= 15 * 1024 * 1024) {
+                $body = file_get_contents($local);
+                $mime = mime_content_type($local) ?: null;
+            }
+        }
+        if ($body === null) {
+            $res = Http::timeout(30)->retry(1, 1000, throw: false)->get($url);
+            $mime = strtok((string) $res->header('Content-Type'), ';');
+            if (! $res->successful() || strlen($res->body()) > 15 * 1024 * 1024) {
+                return null;
+            }
+            $body = $res->body();
+        }
+        if (! str_starts_with((string) $mime, 'image/')) {
             return null;
         }
         $tmp = tempnam(sys_get_temp_dir(), 'wpimg');
-        file_put_contents($tmp, $res->body());
+        file_put_contents($tmp, $body);
         $name = basename(parse_url($url, PHP_URL_PATH)) ?: 'image.jpg';
         try {
             $asset = $this->media->store(new UploadedFile($tmp, $name, $mime, null, true), null, array_filter([
