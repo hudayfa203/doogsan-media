@@ -18,6 +18,14 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->scoped(Seo::class);
+
+        // Shared hosts (e.g. Namecheap) often default MySQL/MariaDB to MyISAM, whose
+        // 1000-byte index limit breaks utf8mb4 unique keys. Use InnoDB with DYNAMIC rows.
+        foreach (['mysql', 'mariadb'] as $c) {
+            if (config("database.connections.{$c}") && ! config("database.connections.{$c}.engine")) {
+                config(["database.connections.{$c}.engine" => env('DB_ENGINE', 'InnoDB ROW_FORMAT=DYNAMIC')]);
+            }
+        }
     }
 
     public function boot(): void
